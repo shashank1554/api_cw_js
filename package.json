@@ -1,0 +1,9 @@
+{
+  "name": "cw-vercel-api",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "puppeteer-core": "^21.0.0",
+    "@sparticuz/chromium": "^119.0.0"
+  }
+}
