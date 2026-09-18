@@ -28,6 +28,25 @@ export default async function handler(req, res) {
     });
 
     const page = await browser.newPage();
+    const networkResponses = [];
+    const responseTasks = [];
+
+    page.on('response', (response) => {
+      const contentType = response.headers()['content-type'] || '';
+      const responseUrl = response.url();
+
+      if (!contentType.includes('application/json') || !responseUrl.includes('careerwill.com')) {
+        return;
+      }
+
+      responseTasks.push(response.json().then((body) => {
+        networkResponses.push({
+          url: responseUrl,
+          status: response.status(),
+          body,
+        });
+      }).catch(() => {}));
+    });
     
     // Stealth mode
     await page.evaluateOnNewDocument(() => {
@@ -61,20 +80,35 @@ export default async function handler(req, res) {
     });
 
     await page.waitForTimeout(3000);
+    await Promise.all(responseTasks);
 
     // Extract data
-    const data = await page.evaluate(() => {
-      if (window.__NEXT_DATA__ && window.__NEXT_DATA__.props) {
-        return window.__NEXT_DATA__.props.pageProps;
-      }
-      return null;
+    const pageData = await page.evaluate(() => {
+      const nextData = window.__NEXT_DATA__?.props?.pageProps || null;
+      const links = [...document.querySelectorAll('a[href]')]
+        .map((link) => ({ title: link.textContent.trim(), href: link.href }))
+        .filter((link) => link.title || link.href);
+
+      return {
+        nextData,
+        title: document.title,
+        text: document.body.innerText,
+        links,
+      };
     });
 
-    if (data) {
+    if (pageData.text || pageData.nextData || networkResponses.length) {
       console.log('✅ Data fetched successfully!');
       return res.status(200).json({
         success: true,
-        data: data
+        data: {
+          batchId: batch_id,
+          title: pageData.title,
+          pageProps: pageData.nextData,
+          apiResponses: networkResponses,
+          pageText: pageData.text,
+          links: pageData.links,
+        }
       });
     } else {
       return res.status(404).json({

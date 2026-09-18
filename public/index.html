@@ -124,6 +124,38 @@
         overflow: auto;
       }
 
+      .summary {
+        display: grid;
+        gap: 18px;
+      }
+
+      .summary h2 {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 500;
+      }
+
+      .summary p {
+        margin: 0;
+        color: var(--muted);
+        font: 15px/1.6 Arial, sans-serif;
+        white-space: pre-wrap;
+      }
+
+      .source-list {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font: 14px/1.45 Arial, sans-serif;
+      }
+
+      .source-list a { color: var(--accent-dark); overflow-wrap: anywhere; }
+
+      details { border-top: 1px solid var(--line); padding-top: 16px; }
+      summary { cursor: pointer; font: 700 13px/1.2 Arial, sans-serif; }
+
       pre {
         margin: 0;
         color: #24403c;
@@ -156,7 +188,7 @@
 
       <p class="status" id="status" role="status">Ready for a request.</p>
       <section class="output" aria-label="Fetched response">
-        <pre id="result">The response will appear here.</pre>
+        <div id="result">The fetched lesson content will appear here.</div>
       </section>
     </main>
 
@@ -166,6 +198,29 @@
       const button = document.querySelector('#fetch-button');
       const status = document.querySelector('#status');
       const result = document.querySelector('#result');
+
+      function renderData(payload) {
+        const data = payload.data || {};
+        const responses = data.apiResponses || [];
+        const links = data.links || [];
+        const text = data.pageText || 'The page returned no visible text.';
+        const responseJson = JSON.stringify(payload, null, 2);
+
+        result.innerHTML = `
+          <div class="summary">
+            <h2>${escapeHtml(data.title || `Batch ${data.batchId || ''}`)}</h2>
+            <p>${escapeHtml(text)}</p>
+            <p><strong>${responses.length}</strong> data responses captured from the course page.</p>
+            ${links.length ? `<ul class="source-list">${links.slice(0, 40).map((link) => `<li><a href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer">${escapeHtml(link.title || link.href)}</a></li>`).join('')}</ul>` : ''}
+            <details><summary>Show raw fetched data</summary><pre>${escapeHtml(responseJson)}</pre></details>
+          </div>`;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>'"]/g, (character) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[character]));
+      }
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -177,7 +232,8 @@
         try {
           const response = await fetch(`/api/cw-bypass?batch_id=${encodeURIComponent(batchId.value.trim())}`);
           const payload = await response.json();
-          result.textContent = JSON.stringify(payload, null, 2);
+          if (response.ok && payload.success) renderData(payload);
+          else result.textContent = JSON.stringify(payload, null, 2);
           status.textContent = response.ok ? 'Data loaded.' : `Request failed (${response.status}).`;
           if (!response.ok) status.className = 'status error';
         } catch (error) {
