@@ -1,5 +1,5 @@
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 export default async function handler(req, res) {
   // CORS headers
