@@ -1,6 +1,8 @@
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
+const executablePathPromise = chromium.executablePath();
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,7 +23,7 @@ export default async function handler(req, res) {
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await executablePathPromise,
       headless: chromium.headless,
     });
 
