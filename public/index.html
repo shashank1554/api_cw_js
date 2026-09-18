@@ -152,6 +152,10 @@
       }
 
       .source-list a { color: var(--accent-dark); overflow-wrap: anywhere; }
+      .batch-button { width: 100%; text-align: left; }
+      .topic { border-top: 1px solid var(--line); padding-top: 14px; }
+      .topic h3 { margin: 0 0 10px; font-size: 20px; font-weight: 500; }
+      .lesson-type { color: var(--warm); font: 700 11px Arial, sans-serif; text-transform: uppercase; }
 
       details { border-top: 1px solid var(--line); padding-top: 16px; }
       summary { cursor: pointer; font: 700 13px/1.2 Arial, sans-serif; }
@@ -176,14 +180,14 @@
     <main>
       <p class="eyebrow">CareerWill / batch data</p>
       <h1>See what the API fetched.</h1>
-      <p class="intro">Enter a batch ID to request the latest course details and inspect the returned data.</p>
+      <p class="intro">Load your enrolled batches, then open a course to study its lessons and notes.</p>
 
       <form class="toolbar" id="batch-form">
         <label>
           Batch ID
-          <input id="batch-id" name="batch_id" value="3302" inputmode="numeric" required />
+          <input id="batch-id" name="batch_id" placeholder="Leave empty for all batches" inputmode="numeric" />
         </label>
-        <button type="submit" id="fetch-button">Fetch data</button>
+        <button type="submit" id="fetch-button">Load batches</button>
       </form>
 
       <p class="status" id="status" role="status">Ready for a request.</p>
@@ -201,17 +205,36 @@
 
       function renderData(payload) {
         const data = payload.data || {};
-        const responses = data.apiResponses || [];
-        const links = data.links || [];
-        const text = data.pageText || 'The page returned no visible text.';
         const responseJson = JSON.stringify(payload, null, 2);
+
+        if (data.batches) {
+          result.innerHTML = `
+            <div class="summary">
+              <h2>Your batches</h2>
+              <ul class="source-list">${data.batches.map((batch) => `<li><button class="batch-button" data-batch-id="${escapeHtml(batch.id)}">${escapeHtml(batch.batchName || `Batch ${batch.id}`)}</button></li>`).join('')}</ul>
+              <details><summary>Show raw fetched data</summary><pre>${escapeHtml(responseJson)}</pre></details>
+            </div>`;
+
+          document.querySelectorAll('.batch-button').forEach((batchButton) => {
+            batchButton.addEventListener('click', () => {
+              batchId.value = batchButton.dataset.batchId;
+              form.requestSubmit();
+            });
+          });
+          return;
+        }
+
+        const batch = data.batch;
+        if (!batch) {
+          result.textContent = JSON.stringify(payload, null, 2);
+          return;
+        }
 
         result.innerHTML = `
           <div class="summary">
-            <h2>${escapeHtml(data.title || `Batch ${data.batchId || ''}`)}</h2>
-            <p>${escapeHtml(text)}</p>
-            <p><strong>${responses.length}</strong> data responses captured from the course page.</p>
-            ${links.length ? `<ul class="source-list">${links.slice(0, 40).map((link) => `<li><a href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer">${escapeHtml(link.title || link.href)}</a></li>`).join('')}</ul>` : ''}
+            <h2>${escapeHtml(batch.title)}</h2>
+            <p>${batch.counts.topics} topics · ${batch.counts.lessons} lessons · ${batch.counts.notes} notes</p>
+            ${batch.topics.map((topic) => `<section class="topic"><h3>${escapeHtml(topic.title)}</h3><ul class="source-list">${topic.lessons.map((lesson) => `<li><span class="lesson-type">${escapeHtml(lesson.type)}</span> ${lesson.playbackUrl ? `<a href="${escapeHtml(lesson.playbackUrl)}" target="_blank" rel="noreferrer">${escapeHtml(lesson.title)}</a>` : escapeHtml(lesson.title)}</li>`).join('')}${topic.notes.map((note) => `<li><a href="${escapeHtml(note.url)}" target="_blank" rel="noreferrer">${escapeHtml(note.title)}</a></li>`).join('')}</ul></section>`).join('')}
             <details><summary>Show raw fetched data</summary><pre>${escapeHtml(responseJson)}</pre></details>
           </div>`;
       }
@@ -230,11 +253,12 @@
         result.textContent = '';
 
         try {
-          const response = await fetch(`/api/cw-bypass?batch_id=${encodeURIComponent(batchId.value.trim())}`);
+          const query = batchId.value.trim() ? `?batch_id=${encodeURIComponent(batchId.value.trim())}` : '';
+          const response = await fetch(`/api/cw-bypass${query}`);
           const payload = await response.json();
           if (response.ok && payload.success) renderData(payload);
           else result.textContent = JSON.stringify(payload, null, 2);
-          status.textContent = response.ok ? 'Data loaded.' : `Request failed (${response.status}).`;
+          status.textContent = response.ok ? (payload.data?.batch ? 'Course content loaded.' : 'Batches loaded.') : `Request failed (${response.status}).`;
           if (!response.ok) status.className = 'status error';
         } catch (error) {
           status.className = 'status error';
