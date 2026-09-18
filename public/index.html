@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3efe7" />
+    <title>CareerWill Batch Viewer</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172121;
+        --muted: #66716f;
+        --paper: #f3efe7;
+        --panel: #fffdf8;
+        --line: #d8ddd5;
+        --accent: #0e756d;
+        --accent-dark: #09534e;
+        --warm: #e58b54;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+
+      main {
+        width: min(1080px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+
+      .eyebrow {
+        margin: 0 0 14px;
+        color: var(--accent);
+        font: 700 12px/1.2 Arial, sans-serif;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 680px;
+        margin: 0;
+        font-size: clamp(42px, 7vw, 82px);
+        line-height: 0.98;
+        font-weight: 500;
+        letter-spacing: -0.04em;
+      }
+
+      .intro {
+        max-width: 560px;
+        margin: 22px 0 40px;
+        color: var(--muted);
+        font-size: 19px;
+        line-height: 1.5;
+      }
+
+      .toolbar,
+      .output {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: 8px 8px 0 rgba(14, 117, 109, 0.08);
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: end;
+        gap: 16px;
+        padding: 22px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        min-width: 220px;
+        color: var(--muted);
+        font: 700 12px/1.2 Arial, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      input,
+      button {
+        min-height: 48px;
+        border-radius: 0;
+        font: 16px Georgia, 'Times New Roman', serif;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--line);
+        padding: 0 13px;
+        color: var(--ink);
+        background: #fff;
+      }
+
+      button {
+        border: 1px solid var(--accent-dark);
+        padding: 0 22px;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+      }
+
+      button:hover { background: var(--accent-dark); }
+      button:disabled { cursor: wait; opacity: 0.65; }
+
+      .status {
+        min-height: 22px;
+        margin: 18px 0 12px;
+        color: var(--muted);
+        font: 14px/1.5 Arial, sans-serif;
+      }
+
+      .status.error { color: #a13d27; }
+
+      .output {
+        min-height: 300px;
+        padding: 22px;
+        overflow: auto;
+      }
+
+      pre {
+        margin: 0;
+        color: #24403c;
+        font: 13px/1.65 'SFMono-Regular', Consolas, monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      @media (max-width: 620px) {
+        main { width: min(100% - 28px, 1080px); padding-top: 34px; }
+        .toolbar { align-items: stretch; flex-direction: column; }
+        label { min-width: 0; }
+        button { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">CareerWill / batch data</p>
+      <h1>See what the API fetched.</h1>
+      <p class="intro">Enter a batch ID to request the latest course details and inspect the returned data.</p>
+
+      <form class="toolbar" id="batch-form">
+        <label>
+          Batch ID
+          <input id="batch-id" name="batch_id" value="3302" inputmode="numeric" required />
+        </label>
+        <button type="submit" id="fetch-button">Fetch data</button>
+      </form>
+
+      <p class="status" id="status" role="status">Ready for a request.</p>
+      <section class="output" aria-label="Fetched response">
+        <pre id="result">The response will appear here.</pre>
+      </section>
+    </main>
+
+    <script>
+      const form = document.querySelector('#batch-form');
+      const batchId = document.querySelector('#batch-id');
+      const button = document.querySelector('#fetch-button');
+      const status = document.querySelector('#status');
+      const result = document.querySelector('#result');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        status.className = 'status';
+        status.textContent = 'Fetching batch data...';
+        result.textContent = '';
+
+        try {
+          const response = await fetch(`/api/cw-bypass?batch_id=${encodeURIComponent(batchId.value.trim())}`);
+          const payload = await response.json();
+          result.textContent = JSON.stringify(payload, null, 2);
+          status.textContent = response.ok ? 'Data loaded.' : `Request failed (${response.status}).`;
+          if (!response.ok) status.className = 'status error';
+        } catch (error) {
+          status.className = 'status error';
+          status.textContent = 'Could not reach the API.';
+          result.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
